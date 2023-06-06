@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <title>Dicom Anonymizer</title>
+        <script defer="defer" src="dicom-anonymizer.js"></script>
+    </head>
+    <body>
+        <h1>Dicom Anonymizer</h1>
+
+        <input type="file" id="dicomFileInput" name="dicomFileInput">
+
+        <button type="button" onclick="start()" id="start">Start Anonymizer</button>
+
+        <script>
+            
+
+            async function start(){
+                //initialize instance of anonymizer
+                const dicomAnonymizer = new DicomAnonymizer()
+                
+                //get the file added in input
+                const selectedFile = document.getElementById("dicomFileInput").files[0];
+                if(!selectedFile) {
+                    return console.warn('no file found')
+                }
+                //test if it is a dicom P10 or not
+                const checkIsDicom = await dicomAnonymizer.checkIfFileIsDicomP10(selectedFile)
+                if(!checkIsDicom) {
+                    return console.warn('not dicom file')
+                }
+
+                //read and parse dicom file
+                const ds = await dicomAnonymizer.getDatasetFromFile(selectedFile)
+                console.log(ds)
+                
+                //load configuration (default is blacklist)
+                dicomAnonymizer.setConfig('whitelist')
+                console.log(dicomAnonymizer.config)
+
+                //anonymize the file
+                const map = []
+                const blob = await dicomAnonymizer.anonymizeFile(selectedFile, map)
+                console.log(map)
+                downloadBlob(blob)
+            }
+
+
+
+
+            function downloadBlob(blob){
+                const a = document.createElement("a")
+                document.body.appendChild(a)
+                a.style = "display: none"
+                const url = window.URL.createObjectURL(blob)
+                a.href = url
+                a.download = "anonymized.dcm"
+                a.click()
+                window.URL.revokeObjectURL(url)
+            }
+        </script>
+    </body>
+</html>
