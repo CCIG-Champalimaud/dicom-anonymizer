@@ -14,7 +14,7 @@ The DICOM Anonymizer is a tool designed to remove personal patient information d
 You can install the DICOM Anonymizer via npm:
 
 ```bash
-npm install dicom-anonymizer
+npm install @ccig/dicom-anonymizer
 ```
 
 or clone the project from github
