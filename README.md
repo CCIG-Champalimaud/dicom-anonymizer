@@ -124,10 +124,7 @@ function downloadBlob(blob){
 ```
 
 ## Contributing
+Contributions are welcome! Please use GitHub issues and/or pull requests. We'll be happy to assist you!
 
-
-#### setConfig
-Sets the configuration object for the DICOM Anonymizer instance
-
-#### getDatasetFromFile
-Loads a DICOM P10 file and returns its dataset as an object
+## License
+This project is licensed under the MIT License

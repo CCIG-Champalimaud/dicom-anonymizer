@@ -2,6 +2,11 @@
   "name": "dicom_anonymizer",
   "version": "0.1.0",
   "description": "Anonymize dicom P10 files with customizable scripts",
+  "homepage": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CCIG-Champalimaud/dicom-anonymizer.git"
+  },
   "main": "./src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
