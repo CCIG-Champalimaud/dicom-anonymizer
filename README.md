@@ -19,17 +19,19 @@ npm install dicom-anonymizer
 
 or clone the project from github
 
-xxxx 
+```bash
+git clone https://github.com/CCIG-Champalimaud/dicom-anonymizer.git
+````
 
 and build a distribution bundle with
 
-```
+```bash
 npm run build
 ```
 
 or
 
-```
+```bash
 yarn build
 ```
 

@@ -1,6 +1,6 @@
 {
-  "name": "dicom_anonymizer",
-  "version": "0.1.0",
+  "name": "@ccig/dicom-anonymizer",
+  "version": "0.1.1",
   "description": "Anonymize dicom P10 files with customizable scripts",
   "homepage": "",
   "repository": {
