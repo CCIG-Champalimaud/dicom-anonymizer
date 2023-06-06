@@ -5,13 +5,7 @@ const blacklistConfig = require('./protocols/blacklistConfig.json')
 const whitelistConfig = require('./protocols/whitelistConfig.json')
 const dicomMandatoryTags = require('./utils/dicomMandatoryTags.js')
 const namesDictionary = require('./utils/namesDictionary.js')
-//const fs = require('fs-extra')
 const objHash = require('object-hash')
-//const {Blob} = require('buffer')
-
-
-let fs
-
 
 
 module.exports = class DicomAnonymizer {
@@ -72,40 +66,28 @@ module.exports = class DicomAnonymizer {
     * @param {File} file 
     */
     async getDatasetFromFile(file){
-        //browser
-        if(this.#isBrowser()){
-            const parseDicom = (f)=>{
-                return new Promise((resolve, reject) => {
-                    try{
-        
-                        const   reader = new FileReader(),
-                                dicomParser = new dwv.dicom.DicomParser()
-        
-                        reader.onload = function() {
-                            const arrayBuffer = new Uint8Array(reader.result)
-                            dicomParser.parse(arrayBuffer.buffer)
-                            resolve(dicomParser.getRawDicomElements())
-                        }
-                        reader.readAsArrayBuffer(f) 
-        
-                    }catch(ex){
-                        reject(ex) 
+    
+        const parseDicom = (f)=>{
+            return new Promise((resolve, reject) => {
+                try{
+    
+                    const   reader = new FileReader(),
+                            dicomParser = new dwv.dicom.DicomParser()
+    
+                    reader.onload = function() {
+                        const arrayBuffer = new Uint8Array(reader.result)
+                        dicomParser.parse(arrayBuffer.buffer)
+                        resolve(dicomParser.getRawDicomElements())
                     }
-                }) 
-            }
-            
-            return await parseDicom(file)
-        
-        //node
-        }else{
-            fs = require('fs-extra')
-
-            const data = fs.readFileSync(file)
-            const arrayBuffer = new Uint8Array(data).buffer
-            const dicomParser = new dwv.dicom.DicomParser()
-            dicomParser.parse(arrayBuffer)
-            return dicomParser.getRawDicomElements()
+                    reader.readAsArrayBuffer(f) 
+    
+                }catch(ex){
+                    reject(ex) 
+                }
+            }) 
         }
+            
+        return await parseDicom(file)
         
     }
 
@@ -239,54 +221,32 @@ module.exports = class DicomAnonymizer {
         const chunkSize  = 4
         const offset     = 128
 
-        //browser
-        if(this.#isBrowser()){
-            const checkFile = (f)=>{
-                return new Promise((resolve, reject) => {
-                    try{
         
-                        const reader = new FileReader()
-        
-                        reader.onload = function() {
-                            
-                            const arrayBuffer = new Uint8Array(reader.result)
-                           
-                            const labelByte = arrayBuffer.reduce( (prev, cur) => prev + String.fromCharCode(cur),'')
-                            
-                            resolve(labelByte === 'DICM')
-                        }
-                        const slicedFile = f.slice(offset, offset + chunkSize)
-
-                        reader.readAsArrayBuffer(slicedFile)
-        
-                    }catch(ex){
-                        resolve(false) 
+        const checkFile = (f)=>{
+            return new Promise((resolve, reject) => {
+                try{
+    
+                    const reader = new FileReader()
+    
+                    reader.onload = function() {
+                        
+                        const arrayBuffer = new Uint8Array(reader.result)
+                        
+                        const labelByte = arrayBuffer.reduce( (prev, cur) => prev + String.fromCharCode(cur),'')
+                        
+                        resolve(labelByte === 'DICM')
                     }
-                }) 
-            }
-            
-            return await checkFile(file)
-        
-        //node
-        }else{
-            fs = require('fs-extra')
-            
-            let fd = fs.openSync(file, 'r')
+                    const slicedFile = f.slice(offset, offset + chunkSize)
+
+                    reader.readAsArrayBuffer(slicedFile)
     
-            const stats = fs.statSync(file)
-            if(stats.size <= chunkSize + offset){
-                return false
-            }
-    
-            var buffer = Buffer.alloc(4);
-            fs.readSync(fd, buffer, 0, chunkSize, offset)
-                
-            const labelByte = buffer.reduce( (prev, cur) => prev + String.fromCharCode(cur),'')
-            
-            return labelByte === 'DICM'
+                }catch(ex){
+                    resolve(false) 
+                }
+            }) 
         }
-
-
+        
+        return await checkFile(file)
     }
     
     
@@ -318,11 +278,6 @@ module.exports = class DicomAnonymizer {
 
 
     //PRIVATE METHODS ==========================
-    #isBrowser(){
-        return typeof window !== 'undefined'
-    } 
-   
-
     //convertDatasetToDatatable
     #previewAnonymizer(rawTags){
 
@@ -880,15 +835,8 @@ module.exports = class DicomAnonymizer {
         const writer = new dwv.dicom.DicomWriter()
         writer.rules = rules
         const dicomBuffer = writer.getBuffer(processedTags)
-
-        if(this.#isBrowser()){
-            return new Blob([dicomBuffer], {type: 'application/dicom'})
-        }else{
-            const {Blob} = require('buffer')
-            return new Blob([dicomBuffer], {type: 'application/dicom'})
-        }
-
         
+        return new Blob([dicomBuffer], {type: 'application/dicom'})
     }
     
     
