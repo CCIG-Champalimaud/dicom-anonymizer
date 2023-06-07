@@ -1,5 +1,5 @@
 const pck = require('../package.json')
-const version = pck.version.replaceAll('.', '_')
+const versionString = pck.version.replaceAll('.', '_')
 const dwv = require('dwv')
 const blacklistConfig = require('./protocols/blacklistConfig.json')
 const whitelistConfig = require('./protocols/whitelistConfig.json')
@@ -19,9 +19,9 @@ module.exports = class DicomAnonymizer {
         blacklist: blacklistConfig,
         whitelist: whitelistConfig
     }
-    config = this.defaultConfigs.blacklist //blacklist configuration is default
+    config = blacklistConfig //blacklist configuration is default
     dicomImplementationClassUID = '1.2.826.0.1.3680043.10.669.1.01' //last 2 digits are software version
-    dicomImplementationVersionName = `ANONYMIZER_${this.version}`
+    dicomImplementationVersionName = `ANONYMIZER_${versionString}`
     dicomUIDPrefix = '1.2.826.0.1.3680043.10.669.2'
 
 
@@ -357,8 +357,6 @@ module.exports = class DicomAnonymizer {
     #previewProcessTags(tagsObj, sequence, remove, pad, imageProps, datatable){
         const {strategy, options} = this.config.protocol
         const customActionList = this.config.protocol[strategy] || []
-
-        const dicomParser = new dwv.dicom.DicomParser()
         
         for(const [tagAddress, tag] of Object.entries(tagsObj)){
             //convert address from x12341234 to (1234,1234)
@@ -373,7 +371,7 @@ module.exports = class DicomAnonymizer {
 
             //blacklist has some additional options that only make sense in a blacklist cenario
             //private groups
-            if( strategy === 'blacklist' && options.removePrivateGroups && this.isPrivateTag(tagAddress) ){ //replace dicomparser.isPrivateTag
+            if( strategy === 'blacklist' && options.removePrivateGroups && this.isPrivateTag(tagAddress) ){
                 tagAction = 'remove'
             }
             //curve tags 50xx
