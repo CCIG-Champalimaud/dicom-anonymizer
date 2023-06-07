@@ -5,6 +5,7 @@ const blacklistConfig = require('./protocols/blacklistConfig.json')
 const whitelistConfig = require('./protocols/whitelistConfig.json')
 const dicomMandatoryTags = require('./utils/dicomMandatoryTags.js')
 const namesDictionary = require('./utils/namesDictionary.js')
+const dicomTagDictionary = require('./utils/dicomTagDictionary.js')
 const objHash = require('object-hash')
 
 
@@ -97,8 +98,18 @@ module.exports = class DicomAnonymizer {
 
 
 
+    async getDatasetFromArraybuffer(arraybuffer){
+        const dicomParser = new dwv.dicom.DicomParser()
+        dicomParser.parse(arraybuffer)
+        return dicomParser.getRawDicomElements()
+    }
+
 
     
+
+
+
+
     
     async previewAnonymizeFileAsDatatable(file){
         const rawTags = await this.getDatasetFromFile(file)
@@ -106,7 +117,10 @@ module.exports = class DicomAnonymizer {
     }
 
 
-
+    async previewAnonymizeArraybufferAsDatatable(arraybuffer){
+        const rawTags = await this.getDatasetFromArraybuffer(arraybuffer)
+        return this.#previewAnonymizer(rawTags)
+    }
 
 
 
@@ -121,6 +135,17 @@ module.exports = class DicomAnonymizer {
         return this.#writeTagsToBlob(rawTags, processTagsConfig.rules)
     }
 
+
+
+    async anonymizeArraybuffer(arraybuffer, mapKeys = null){ 
+        const rawTags = await this.getDatasetFromArraybuffer(arraybuffer)
+        //setup properties to process the tags
+        const processTagsConfig = this.#initProcessConfig(rawTags, mapKeys) // returns {imageProps, isImplicit, strategy, options, customActionList, rules}
+        //copy, remove and modify tags
+        this.#processTags(rawTags, processTagsConfig)
+        //use dwv writer to create a new file with the modified tags
+        return this.#writeTagsToArrayBuffer(rawTags, processTagsConfig.rules)
+    }
 
 
 
@@ -254,7 +279,18 @@ module.exports = class DicomAnonymizer {
 
 
 
-    
+
+
+
+
+
+    checkIfArraybufferIsDicomP10(arraybuffer) {
+        const chunkSize  = 4
+        const offset     = 128
+        const slicedBuffer = arraybuffer.slice(offset, offset + chunkSize)
+        const labelByte = slicedBuffer.reduce( (prev, cur) => prev + String.fromCharCode(cur),'')   
+        return(labelByte === 'DICM')
+    }
 
 
 
@@ -820,7 +856,7 @@ module.exports = class DicomAnonymizer {
         const group = tagAddress.substring(1,5);
         const element = tagAddress.substring(5,9);
         const tagIndex = `(${group},${element})`.toUpperCase();
-        const attr = dwv.dicom.dictionary[tagIndex];
+        const attr = dicomTagDictionary[tagIndex];
         return attr || { tag: tagIndex, name: '' };
     }
 
@@ -839,6 +875,15 @@ module.exports = class DicomAnonymizer {
         return new Blob([dicomBuffer], {type: 'application/dicom'})
     }
     
+
+    #writeTagsToArrayBuffer(processedTags, rules){
+        //remake the file with the modified tags object
+        const writer = new dwv.dicom.DicomWriter()
+        writer.rules = rules
+        const dicomBuffer = writer.getBuffer(processedTags)
+        
+        return dicomBuffer //new Blob([dicomBuffer], {type: 'application/dicom'})
+    }
     
     
 

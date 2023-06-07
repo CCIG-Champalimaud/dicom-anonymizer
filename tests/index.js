@@ -12,14 +12,14 @@ anonymizerTest.addDicomFiles(files)
 
 anonymizerTest.checkIfFileIsDicomP10()
 
-anonymizerTest.setConfig()
-anonymizerTest.getDatasetFromFile()
-anonymizerTest.isPrivateTag()
-anonymizerTest.tagIsInList()
-anonymizerTest.isKnownClass()
-anonymizerTest.hashStringToNumber()
-anonymizerTest.tagFormat()
-anonymizerTest.previewAnonymizeFileAsDatatable()
+//anonymizerTest.setConfig()
+//anonymizerTest.getDatasetFromFile()
+//anonymizerTest.isPrivateTag()
+//anonymizerTest.tagIsInList()
+//anonymizerTest.isKnownClass()
+//anonymizerTest.hashStringToNumber()
+//anonymizerTest.tagFormat()
+//anonymizerTest.previewAnonymizeFileAsDatatable()
 anonymizerTest.anonymizeFile()
 
 

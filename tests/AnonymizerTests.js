@@ -1,5 +1,7 @@
 
 
+const fs = require('fs-extra')
+const path = require('path')
 const DicomAnonymizer = require('../src/DicomAnonymizer.js')
 const dicomAnonymizer = new DicomAnonymizer()
 
@@ -15,7 +17,8 @@ module.exports = class DicomAnonymizerTests {
 
 
     async checkIfFileIsDicomP10(){
-        const isDicom =  await dicomAnonymizer.checkIfFileIsDicomP10(this.files[0])
+        const arraybuffer = fs.readFileSync(this.files[0])
+        const isDicom =  await dicomAnonymizer.checkIfArraybufferIsDicomP10(arraybuffer)
         console.log('is dicom?', isDicom)
     }
 
@@ -107,9 +110,11 @@ module.exports = class DicomAnonymizerTests {
     
     
     async previewAnonymizeFileAsDatatable(){
-       const prev = await dicomAnonymizer.previewAnonymizeFileAsDatatable(this.files[0])
-       console.log(prev.find(p=>p.address === '(0010,0010)').value, '=>', prev.find(p=>p.address === '(0010,0010)').valueAfter)
-       console.log(prev.find(p=>p.address === '(0010,0020)').value, '=>', prev.find(p=>p.address === '(0010,0020)').valueAfter)
+        const arraybuffer = fs.readFileSync(this.files[0]).buffer
+        const prev = await dicomAnonymizer.previewAnonymizeArraybufferAsDatatable(arraybuffer)
+        console.log(prev)
+       //console.log(prev.find(p=>p.address === '(0010,0010)').value, '=>', prev.find(p=>p.address === '(0010,0010)').valueAfter)
+       //console.log(prev.find(p=>p.address === '(0010,0020)').value, '=>', prev.find(p=>p.address === '(0010,0020)').valueAfter)
     }
 
 
@@ -118,8 +123,9 @@ module.exports = class DicomAnonymizerTests {
 
 
 
-    async anonymizeFile(file, mapKeys = []){ 
-        const blob = await dicomAnonymizer.anonymizeFile(this.files[0], mapKeys)
+    async anonymizeFile(file, mapKeys = []){
+        const arraybuffer = fs.readFileSync(this.files[0]).buffer
+        const blob = await dicomAnonymizer.anonymizeArraybuffer(arraybuffer, mapKeys)
         console.log(blob)
         console.log(mapKeys)
     }

@@ -1,6 +1,6 @@
 {
   "name": "@ccig/dicom-anonymizer",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Anonymize dicom P10 files with customizable scripts",
   "homepage": "",
   "repository": {
@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@webpack-cli/generators": "^3.0.4",
+    "fs-extra": "^11.1.1",
     "html-webpack-plugin": "^5.5.1",
     "path": "^0.12.7",
     "webpack": "^5.85.0",
