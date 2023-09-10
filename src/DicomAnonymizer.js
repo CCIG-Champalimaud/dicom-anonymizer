@@ -22,6 +22,7 @@ module.exports = class DicomAnonymizer {
     config = blacklistConfig //blacklist configuration is default
     dicomImplementationClassUID = '1.2.826.0.1.3680043.10.669.1.01' //last 2 digits are software version
     dicomImplementationVersionName = `ANONYMIZER_${versionString}`
+    deidentificationMethod = `cliniti-blacklist`
     dicomUIDPrefix = '1.2.826.0.1.3680043.10.669.2'
 
 
@@ -29,9 +30,10 @@ module.exports = class DicomAnonymizer {
     constructor(configObject = {}){
         if( configObject && Object.keys(configObject).length ){
             //set implementation class UID, version and prefix (or default if missing)
-            const {dicomImplementationClassUID, dicomImplementationVersionName, dicomUIDPrefix, configuration } = configObject
+            const {dicomImplementationClassUID, dicomImplementationVersionName, dicomUIDPrefix, deidentificationMethod, configuration } = configObject
             if(configuration) this.config = configuration
             if(dicomImplementationClassUID) this.dicomImplementationClassUID = dicomImplementationClassUID
+            if(deidentificationMethod) this.deidentificationMethod = deidentificationMethod
             if(dicomImplementationVersionName) this.dicomImplementationVersionName = dicomImplementationVersionName
             if(dicomUIDPrefix) this.dicomUIDPrefix = dicomUIDPrefix
         }
@@ -43,7 +45,7 @@ module.exports = class DicomAnonymizer {
 
     setConfig(newConfig){
         if(typeof newConfig === 'object'){
-            this.config = config
+            this.config = newConfig
         
         }else{
             if(newConfig === 0 || newConfig === '0' || newConfig.toString().toLowerCase() === 'blacklist'){
@@ -427,7 +429,20 @@ module.exports = class DicomAnonymizer {
             
                 } else if(tagAddress === 'x00100030'){//patient birth date
                     mandatoryValue = this.#convertPatientBirthDate(tag.value[0], options.keepPatientBirthYear)
+                
+                } else if(tagAddress === 'x00020012'){//dicomImplementationClassUID
+                    mandatoryValue = this.dicomImplementationClassUID
+
+                } else if(tagAddress === 'x00020013'){//dicomImplementationVersionName
+                    mandatoryValue = this.dicomImplementationVersionName
+
+                } else if(tagAddress === 'x00120063'){//deidentificationMethod
+                    mandatoryValue = this.deidentificationMethod
+
+                } else if(tagAddress === 'x00120064'){//deidentificationSequenceCode
+                    mandatoryValue = ''
                 }
+                
             
             }
 
@@ -549,14 +564,18 @@ module.exports = class DicomAnonymizer {
                 action: 'copy', //has to be copy otherwise the getBuffer will remove everything, defaultAction is taken care of in processTags function
                 value: null
             },
-            'x00020010': {action: 'copy', value: null},
             'x00020003': {action: 'replace', value: newPatientID },
+            'x00020010': {action: 'copy', value: null},
+            'x00020012': {action: 'replace', value: this.dicomImplementationClassUID},
+            'x00020013': {action: 'replace', value: this.dicomImplementationVersionName},
             'x00020016': {action: 'remove', value: null},
             'x00020100': {action: 'remove', value: null},
             'x00020102': {action: 'remove', value: null},
+            'x00120063': {action: 'replace', value: this.deidentificationMethod},
+            'x00120064': {action: 'replace', value: ''},
             'x101807A3': {action: 'copy', value: null} //??
         }
-    
+       
         return {imageProps, isImplicit, strategy, options, customActionList, rules}
     }
     

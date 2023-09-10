@@ -1,11 +1,16 @@
 const fs = require('fs-extra')
 const path = require('path')
+const blackListConfig = require('../src/protocols/blacklistConfig.json')
+const whiteListConfig = require('../src/protocols/whitelistConfig.json')
 
 const DicomAnonymizerTests = require('./AnonymizerTests.js')
 const anonymizerTest = new DicomAnonymizerTests()
 
 
 const files = getListOfFilesInDirectory( path.join(__dirname, '.', 'files') )
+
+anonymizerTest.setConfig(blackListConfig)
+
 
 
 anonymizerTest.addDicomFiles(files)

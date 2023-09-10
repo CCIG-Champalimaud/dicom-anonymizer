@@ -25,11 +25,9 @@ module.exports = class DicomAnonymizerTests {
 
 
 
-    setConfig(){
-        dicomAnonymizer.setConfig(0) //'0', 'blacklist'
+    setConfig(config = 0){
+        dicomAnonymizer.setConfig(config) //'0', 'blacklist'
         console.log(dicomAnonymizer.config.name) //test if config is ok instead of this
-        dicomAnonymizer.setConfig(1) //'1', 'whitelist'
-        console.log(dicomAnonymizer.config.name)
     }
 
 
@@ -124,10 +122,16 @@ module.exports = class DicomAnonymizerTests {
 
 
     async anonymizeFile(file, mapKeys = []){
+        console.log(this.files[0]);
+
         const arraybuffer = fs.readFileSync(this.files[0]).buffer
         const blob = await dicomAnonymizer.anonymizeArraybuffer(arraybuffer, mapKeys)
-        console.log(blob)
-        console.log(mapKeys)
+        const prev = await dicomAnonymizer.previewAnonymizeArraybufferAsDatatable(blob)
+        console.log(prev)
+        
+
+        //console.log(blob)
+        //console.log(mapKeys)
     }
 
     
