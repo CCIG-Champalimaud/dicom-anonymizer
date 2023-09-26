@@ -8,7 +8,7 @@
     <body>
         <h1>Dicom Anonymizer</h1>
 
-        <input type="file" id="dicomFileInput" name="dicomFileInput">
+        <input type="file" id="dicomFileInput" name="dicomFileInput[]" multiple>
 
         <button type="button" onclick="start()" id="start">Start Anonymizer</button>
 
@@ -16,33 +16,54 @@
             
 
             async function start(){
+
+                //get the file added in input
+                const fileInput = document.getElementById("dicomFileInput")
+                
+                //no files - abort
+                if (fileInput.files.length <= 0) {
+                    console.log('No files selected')
+                    return
+                }
+
                 //initialize instance of anonymizer
                 const dicomAnonymizer = new DicomAnonymizer()
-                
-                //get the file added in input
-                const selectedFile = document.getElementById("dicomFileInput").files[0];
-                if(!selectedFile) {
-                    return console.warn('no file found')
-                }
-                //test if it is a dicom P10 or not
-                const checkIsDicom = await dicomAnonymizer.checkIfFileIsDicomP10(selectedFile)
-                if(!checkIsDicom) {
-                    return console.warn('not dicom file')
+
+                const validFiles = []
+
+                //remove non dicom files
+                for( const file of fileInput.files){
+
+                    const checkIsDicom = await dicomAnonymizer.checkIfFileIsDicomP10(file)
+
+                    if (checkIsDicom) {
+                        validFiles.push(file);
+                    }else{
+                        console.warn(file.name, ' is not dicom file')
+                    }
                 }
 
-                //read and parse dicom file
-                const ds = await dicomAnonymizer.getDatasetFromFile(selectedFile)
-                console.log(ds)
-                
-                //load configuration (default is blacklist)
-                dicomAnonymizer.setConfig('whitelist')
-                console.log(dicomAnonymizer.config)
-
-                //anonymize the file
                 const map = []
-                const blob = await dicomAnonymizer.anonymizeFile(selectedFile, map)
+                
+                for(const file of validFiles){
+                    //read and parse dicom file
+                    //const ds = await dicomAnonymizer.getDatasetFromFile(file)
+                    //console.log(ds)
+
+                     //load configuration (default is blacklist)
+                    dicomAnonymizer.setConfig('blacklist')
+                    //dicomAnonymizer.setConfig('whitelist')
+                    console.log('Anonymizer is using:', dicomAnonymizer.config.name)
+
+                    //anonymize the file
+                    const blob = await dicomAnonymizer.anonymizeFile(file, map)
+                    
+                    downloadBlob(blob)
+                }
+
+                
                 console.log(map)
-                downloadBlob(blob)
+               
             }
 
 

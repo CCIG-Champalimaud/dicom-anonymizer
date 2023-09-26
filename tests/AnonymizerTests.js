@@ -137,4 +137,10 @@ module.exports = class DicomAnonymizerTests {
     
     
 
+
+    async anonymizeFiles(mapKeys = []){
+
+
+    }
+
 }

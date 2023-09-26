@@ -2,10 +2,6 @@
 //todo: per modality actions
 module.exports = {
     "general": {
-        'x00020012': {action: 'replace', value: null},
-        'x00020013': {action: 'replace', value: null},
-        'x00120063': {action: 'replace', value: null},
-        'x00120064': {action: 'replace', value: null},
         "x00100010": { action: "replace", value: null},
         "x00100020": { action: "replace", value: null},
         "x00100030": { action: "replace", value: null},

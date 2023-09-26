@@ -21,7 +21,7 @@ module.exports = class DicomAnonymizer {
     }
     config = blacklistConfig //blacklist configuration is default
     dicomImplementationClassUID = '1.2.826.0.1.3680043.10.669.1.01' //last 2 digits are software version
-    dicomImplementationVersionName = `ANONYMIZER_${versionString}`
+    dicomImplementationVersionName = `CLINITI_ANONYMIZER_${versionString}`
     deidentificationMethod = `cliniti-blacklist`
     dicomUIDPrefix = '1.2.826.0.1.3680043.10.669.2'
 
@@ -37,6 +37,185 @@ module.exports = class DicomAnonymizer {
             if(dicomImplementationVersionName) this.dicomImplementationVersionName = dicomImplementationVersionName
             if(dicomUIDPrefix) this.dicomUIDPrefix = dicomUIDPrefix
         }
+
+        this.dwvDicomParser = new dwv.dicom.DicomParser()
+        this.dwvDicomWriter = new dwv.dicom.DicomWriter()
+
+        //this is my custom version of getBuffer to overwrite some header elements
+        this.dwvDicomWriter.getBuffer = function (dicomElements) {
+            // Transfer Syntax
+            var syntax = dwv.dicom.cleanString(dicomElements.x00020010.value[0]);
+            var isImplicit = dwv.dicom.isImplicitTransferSyntax(syntax);
+            var isBigEndian = dwv.dicom.isBigEndianTransferSyntax(syntax);
+            // Specific CharacterSet
+            if (typeof dicomElements.x00080005 !== 'undefined') {
+              var oldscs = dwv.dicom.cleanString(dicomElements.x00080005.value[0]);
+              // force UTF-8 if not default character set
+              if (typeof oldscs !== 'undefined' && oldscs !== 'ISO-IR 6') {
+                dwv.logger.debug('Change charset to UTF, was: ' + oldscs);
+                this.useSpecialTextEncoder();
+                dicomElements.x00080005.value = ['ISO_IR 192'];
+              }
+            }
+            // Bits Allocated (for image data)
+            var bitsAllocated;
+            if (typeof dicomElements.x00280100 !== 'undefined') {
+              bitsAllocated = dicomElements.x00280100.value[0];
+            }
+          
+            // calculate buffer size and split elements (meta and non meta)
+            var totalSize = 128 + 4; // DICM
+            var localSize = 0;
+            var metaElements = [];
+            var rawElements = [];
+            var element;
+            var groupName;
+            var metaLength = 0;
+            // FileMetaInformationGroupLength
+            var fmiglTag = dwv.dicom.getFileMetaInformationGroupLengthTag();
+            // FileMetaInformationVersion
+            var fmivTag = new dwv.dicom.Tag('0x0002', '0x0001');
+            // ImplementationClassUID
+            var icUIDTag = new dwv.dicom.Tag('0x0002', '0x0012');
+            // ImplementationVersionName
+            var ivnTag = new dwv.dicom.Tag('0x0002', '0x0013');
+          
+            // loop through elements to get the buffer size
+            var keys = Object.keys(dicomElements);
+            for (var i = 0, leni = keys.length; i < leni; ++i) {
+              element = this.getElementToWrite(dicomElements[keys[i]]);
+              if (element !== null &&
+                 !fmiglTag.equals(element.tag) &&
+                 !fmivTag.equals(element.tag) ){//&&
+                 //!icUIDTag.equals(element.tag) &&
+                 //!ivnTag.equals(element.tag)) {
+                localSize = 0;
+          
+                // XB7 2020-04-17
+                // Check if UN can be converted to correct VR.
+                // This check must be done BEFORE calculating totalSize,
+                // otherwise there may be extra null bytes at the end of the file
+                // (dcmdump may crash because of these bytes)
+                dwv.dicom.checkUnknownVR(element);
+          
+                // update value and vl
+                this.setElementValue(
+                  element, element.value, isImplicit, bitsAllocated);
+          
+                // tag group name
+                groupName = element.tag.getGroupName();
+          
+                // prefix
+                if (groupName === 'Meta Element') {
+                  localSize += dwv.dicom.getDataElementPrefixByteSize(element.vr, false);
+                } else {
+                  localSize += dwv.dicom.getDataElementPrefixByteSize(
+                    element.vr, isImplicit);
+                }
+          
+                // value
+                localSize += element.vl;
+          
+                // sort elements
+                if (groupName === 'Meta Element') {
+                  metaElements.push(element);
+                  metaLength += localSize;
+                } else {
+                  rawElements.push(element);
+                }
+          
+                // add to total size
+                totalSize += localSize;
+              }
+            }
+          
+            // FileMetaInformationVersion
+            var fmiv = dwv.dicom.getDicomElement('FileMetaInformationVersion');
+            var fmivSize = dwv.dicom.getDataElementPrefixByteSize(fmiv.vr, false);
+            fmivSize += this.setElementValue(fmiv, [0, 1], false);
+            metaElements.push(fmiv);
+            metaLength += fmivSize;
+            totalSize += fmivSize;
+            // ImplementationClassUID
+            var icUID = dwv.dicom.getDicomElement('ImplementationClassUID');
+            var icUIDSize = dwv.dicom.getDataElementPrefixByteSize(icUID.vr, false);
+            
+            var icUIDValue = (dicomElements.x00020012 && dicomElements.x00020012.value && dicomElements.x00020012.value.length) ?
+                String.fromCharCode.apply(null, dicomElements.x00020012.value) :
+                dwv.dicom.getUID('ImplementationClassUID') 
+            icUIDSize += this.setElementValue(
+                icUID, [icUIDValue], false);
+            metaElements.push(icUID);
+            metaLength += icUIDSize;
+            totalSize += icUIDSize;
+            // ImplementationVersionName
+            var ivn = dwv.dicom.getDicomElement('ImplementationVersionName');
+            var ivnSize = dwv.dicom.getDataElementPrefixByteSize(ivn.vr, false);
+            //var ivnValue = 'DWV_' + dwv.getVersion();
+            var ivnValue = (dicomElements.x00020013 && dicomElements.x00020013.value && dicomElements.x00020013.value.length) ?
+                String.fromCharCode.apply(null, dicomElements.x00020013.value) :
+                this.dicomImplementationVersionName
+            ivnSize += this.setElementValue(ivn, [ivnValue], false);
+            metaElements.push(ivn);
+            metaLength += ivnSize;
+            totalSize += ivnSize;
+          
+            // sort elements
+            var elemSortFunc = function (a, b) {
+              return dwv.dicom.tagCompareFunction(a.tag, b.tag);
+            };
+            metaElements.sort(elemSortFunc);
+            rawElements.sort(elemSortFunc);
+          
+            // create the FileMetaInformationGroupLength element
+            var fmigl = dwv.dicom.getDicomElement('FileMetaInformationGroupLength');
+            var fmiglSize = dwv.dicom.getDataElementPrefixByteSize(fmigl.vr, false);
+            fmiglSize += this.setElementValue(
+              fmigl, new Uint32Array([metaLength]), false);
+            totalSize += fmiglSize;
+          
+            // create buffer
+            var buffer = new ArrayBuffer(totalSize);
+            var metaWriter = new dwv.dicom.DataWriter(buffer);
+            var dataWriter = new dwv.dicom.DataWriter(buffer, !isBigEndian);
+          
+            var offset = 128;
+            // DICM
+            offset = metaWriter.writeUint8Array(offset, this.encodeString('DICM'));
+            // FileMetaInformationGroupLength
+            offset = this.writeDataElement(metaWriter, fmigl, offset, false);
+            // write meta
+            for (var j = 0, lenj = metaElements.length; j < lenj; ++j) {
+              offset = this.writeDataElement(metaWriter, metaElements[j], offset, false);
+            }
+          
+            // check meta position
+            var preambleSize = 128 + 4;
+            var metaOffset = preambleSize + fmiglSize + metaLength;
+            if (offset !== metaOffset) {
+              dwv.logger.warn('Bad size calculation... meta offset: ' + offset +
+                ', calculated size:' + metaOffset +
+                ' (diff:' + (offset - metaOffset) + ')');
+            }
+          
+            // pass flag to writer
+            dataWriter.useUnVrForPrivateSq = this.useUnVrForPrivateSq;
+            // write non meta
+            for (var k = 0, lenk = rawElements.length; k < lenk; ++k) {
+              offset = this.writeDataElement(
+                dataWriter, rawElements[k], offset, isImplicit);
+            }
+          
+            // check final position
+            if (offset !== totalSize) {
+              dwv.logger.warn('Bad size calculation... final offset: ' + offset +
+                ', calculated size:' + totalSize +
+                ' (diff:' + (offset - totalSize) + ')');
+            }
+            // return
+            return buffer;
+          };
+          
     }
 
 
@@ -74,13 +253,12 @@ module.exports = class DicomAnonymizer {
             return new Promise((resolve, reject) => {
                 try{
     
-                    const   reader = new FileReader(),
-                            dicomParser = new dwv.dicom.DicomParser()
+                    const   reader = new FileReader()
     
                     reader.onload = function() {
                         const arrayBuffer = new Uint8Array(reader.result)
-                        dicomParser.parse(arrayBuffer.buffer)
-                        resolve(dicomParser.getRawDicomElements())
+                        this.dwvDicomParser.parse(arrayBuffer.buffer)
+                        resolve(this.dwvDicomParser.getRawDicomElements())
                     }
                     reader.readAsArrayBuffer(f) 
     
@@ -102,7 +280,7 @@ module.exports = class DicomAnonymizer {
 
     async getDatasetFromArraybuffer(arraybuffer){
         const dicomParser = new dwv.dicom.DicomParser()
-        dicomParser.parse(arraybuffer)
+        dicomParser.parse(arraybuffer.buffer)
         return dicomParser.getRawDicomElements()
     }
 
@@ -127,10 +305,12 @@ module.exports = class DicomAnonymizer {
 
 
 
-    async anonymizeFile(file, mapKeys = null){ 
+    async anonymizeFile(file, mapKeys = [], anonymizedProps = []){ 
         const rawTags = await this.getDatasetFromFile(file)
         //setup properties to process the tags
         const processTagsConfig = this.#initProcessConfig(rawTags, mapKeys) // returns {imageProps, isImplicit, strategy, options, customActionList, rules}
+        //in case the parent function needs the new imageProps (to build a filepath for example)
+        anonymizedProps.push( processTagsConfig.imageProps)
         //copy, remove and modify tags
         this.#processTags(rawTags, processTagsConfig)
         //use dwv writer to create a new file with the modified tags
@@ -139,10 +319,12 @@ module.exports = class DicomAnonymizer {
 
 
 
-    async anonymizeArraybuffer(arraybuffer, mapKeys = null){ 
+    async anonymizeArraybuffer(arraybuffer, mapKeys = [], anonymizedProps = []){ 
         const rawTags = await this.getDatasetFromArraybuffer(arraybuffer)
         //setup properties to process the tags
         const processTagsConfig = this.#initProcessConfig(rawTags, mapKeys) // returns {imageProps, isImplicit, strategy, options, customActionList, rules}
+        //in case the parent function needs the new imageProps (to build a filepath for example)
+        anonymizedProps.push( processTagsConfig.imageProps)
         //copy, remove and modify tags
         this.#processTags(rawTags, processTagsConfig)
         //use dwv writer to create a new file with the modified tags
@@ -454,7 +636,7 @@ module.exports = class DicomAnonymizer {
 
 
             //ex. patientID
-            if(tagAction === 'replace' && mandatoryValue){
+            if(tagAction === 'replace' && mandatoryValue && tag.vr !== 'SQ'){
                 row.value = this.#getElementValueAsString(tag) 
                 tag.value[0] = this.#padElementValue(tag, mandatoryValue ) 
                 row.valueAfter = this.#getElementValueAsString(tag)
@@ -566,8 +748,6 @@ module.exports = class DicomAnonymizer {
             },
             'x00020003': {action: 'replace', value: newPatientID },
             'x00020010': {action: 'copy', value: null},
-            'x00020012': {action: 'replace', value: this.dicomImplementationClassUID},
-            'x00020013': {action: 'replace', value: this.dicomImplementationVersionName},
             'x00020016': {action: 'remove', value: null},
             'x00020100': {action: 'remove', value: null},
             'x00020102': {action: 'remove', value: null},
@@ -575,7 +755,7 @@ module.exports = class DicomAnonymizer {
             'x00120064': {action: 'replace', value: ''},
             'x101807A3': {action: 'copy', value: null} //??
         }
-       
+        
         return {imageProps, isImplicit, strategy, options, customActionList, rules}
     }
     
@@ -597,9 +777,9 @@ module.exports = class DicomAnonymizer {
         for(const [tagAddress, tag] of Object.entries(rawTags)){
             //leave header tags, already taken care off
             const groupName = dwv.dicom.TagGroups[tag.tag.getGroup().slice(1)];
-        
+
             if (groupName === 'Meta Element') {
-                continue
+                //continue
             }
     
             //convert address from x12341234 to (1234,1234)
@@ -663,6 +843,18 @@ module.exports = class DicomAnonymizer {
             
                 } else if(tagAddress === 'x00100030'){//patient birth date
                     mandatoryValue = this.#convertPatientBirthDate(tag.value[0], options.keepPatientBirthYear)
+                
+                } else if(tagAddress === 'x00020012'){//dicomImplementationClassUID
+                    mandatoryValue = this.dicomImplementationClassUID
+
+                } else if(tagAddress === 'x00020013'){//dicomImplementationVersionName
+                    mandatoryValue = this.dicomImplementationVersionName
+
+                } else if(tagAddress === 'x00120063'){//deidentificationMethod
+                    mandatoryValue = this.deidentificationMethod
+
+                } else if(tagAddress === 'x00120064'){//deidentificationSequenceCode
+                    mandatoryValue = ''
                 }
             }
         
@@ -674,7 +866,7 @@ module.exports = class DicomAnonymizer {
     
         
             //ex. patientID
-            if(tagAction === 'replace' && mandatoryValue){
+            if(tagAction === 'replace' && mandatoryValue && tag.vr !== 'SQ'){
                 tag.value[0] = this.#padElementValue(tag, mandatoryValue ) 
                 tag.vl = tag.value[0].length;
                 tag.endOffset = tag.startOffset + tag.value[0].length
@@ -885,7 +1077,7 @@ module.exports = class DicomAnonymizer {
     
     #writeTagsToBlob(processedTags, rules){
         //remake the file with the modified tags object
-        const writer = new dwv.dicom.DicomWriter()
+        const writer = this.dwvDicomWriter 
         writer.rules = rules
         const dicomBuffer = writer.getBuffer(processedTags)
         
@@ -895,11 +1087,11 @@ module.exports = class DicomAnonymizer {
 
     #writeTagsToArrayBuffer(processedTags, rules){
         //remake the file with the modified tags object
-        const writer = new dwv.dicom.DicomWriter()
+        const writer = this.dwvDicomWriter
         writer.rules = rules
         const dicomBuffer = writer.getBuffer(processedTags)
-        
-        return dicomBuffer //new Blob([dicomBuffer], {type: 'application/dicom'})
+        const byteArray = new Uint8Array(dicomBuffer)
+        return byteArray 
     }
     
     

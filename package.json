@@ -1,11 +1,14 @@
 {
   "name": "@ccig/dicom-anonymizer",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "description": "Anonymize dicom P10 files with customizable scripts",
   "homepage": "",
   "repository": {
     "type": "git",
     "url": "https://github.com/CCIG-Champalimaud/dicom-anonymizer.git"
+  },
+  "bin": {
+    "anonymizer-cli": "./bin/anonymizer-cli.js"
   },
   "main": "./src/DicomAnonymizer.js",
   "scripts": {
@@ -19,6 +22,7 @@
   "license": "MIT",
   "dependencies": {
     "canvas": "^2.11.2",
+    "commander": "^11.0.0",
     "dwv": "^0.31.1",
     "object-hash": "^3.0.0"
   },
