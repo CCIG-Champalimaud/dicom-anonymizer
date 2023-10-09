@@ -322,12 +322,14 @@ module.exports = class DicomAnonymizer {
 
     async anonymizeArraybuffer(arraybuffer, mapKeys = [], anonymizedProps = []){ 
         const rawTags = await this.getDatasetFromArraybuffer(arraybuffer)
+        console.log('before:', rawTags.x00100010.value[0], rawTags.x00020012.value[0], rawTags.x00020013.value[0])
         //setup properties to process the tags
         const processTagsConfig = this.#initProcessConfig(rawTags, mapKeys) // returns {imageProps, isImplicit, strategy, options, customActionList, rules}
         //in case the parent function needs the new imageProps (to build a filepath for example)
         anonymizedProps.push( processTagsConfig.imageProps)
         //copy, remove and modify tags
         this.#processTags(rawTags, processTagsConfig)
+        console.log('after:', rawTags.x00100010.value[0], rawTags.x00020012, rawTags.x00020013)
         //use dwv writer to create a new file with the modified tags
         return this.#writeTagsToArrayBuffer(rawTags, processTagsConfig.rules)
     }
@@ -544,6 +546,12 @@ module.exports = class DicomAnonymizer {
         const customActionList = this.config.protocol[strategy] || []
         
         for(const [tagAddress, tag] of Object.entries(tagsObj)){
+
+            //bypass this tags since they will be forced at the end
+            if(tagAddress === 'x00020012' || tagAddress === 'x00020013' || tagAddress === 'x00120063' || tagAddress === 'x00120064'){ 
+                continue
+            }
+
             //convert address from x12341234 to (1234,1234)
             const tagFromDic = this.#getTag(tagAddress)
             const look = tagFromDic.tag
@@ -612,21 +620,7 @@ module.exports = class DicomAnonymizer {
             
                 } else if(tagAddress === 'x00100030'){//patient birth date
                     mandatoryValue = this.#convertPatientBirthDate(tag.value[0], options.keepPatientBirthYear)
-                
-                } else if(tagAddress === 'x00020012'){//dicomImplementationClassUID
-                    mandatoryValue = this.dicomImplementationClassUID
-
-                } else if(tagAddress === 'x00020013'){//dicomImplementationVersionName
-                    mandatoryValue = this.dicomImplementationVersionName
-
-                } else if(tagAddress === 'x00120063'){//deidentificationMethod
-                    mandatoryValue = this.deidentificationMethod
-
-                } else if(tagAddress === 'x00120064'){//deidentificationSequenceCode
-                    mandatoryValue = ''
-                }
-                
-            
+                } 
             }
 
             //marked in parent SQ to remove so all child tags are removed also
@@ -689,6 +683,44 @@ module.exports = class DicomAnonymizer {
             row.value = this.#getElementValueAsString(tag)
             row.valueAfter = row.value
             datatable.push(row)
+        }
+
+
+
+        //force this tags to have the following values
+        if(!sequence){
+            // ImplementationClassUID
+            datatable.push({
+                address: `${pad}(0002,0012)`,
+                name: 'Implementation Class UID',
+                action: 'replace',
+                value: tagsObj.x00020012 ? tagsObj.x00020012.value[0] : '',
+                valueAfter: this.dicomImplementationClassUID
+            })
+            // ImplementationVersionName
+            datatable.push({
+                address: `${pad}(0002,0013)`,
+                name: 'Implementation Version Name',
+                action: 'replace',
+                value: tagsObj.x00020013 ? tagsObj.x00020013.value[0] : '',
+                valueAfter: this.dicomImplementationVersionName
+            })
+            // deidentificationMethod
+            datatable.push({
+                address: `${pad}(0012,0063)`,
+                name: 'De-Identicifaction Method',
+                action: 'replace',
+                value: tagsObj.x00120063 ? tagsObj.x00120063.value[0] : '',
+                valueAfter: this.deidentificationMethod
+            })
+            // De-identification Method Code Sequence
+            datatable.push({
+                address: `${pad}(0012,0064)`,
+                name: 'De-identification Method Code Sequence',
+                action: 'replace',
+                value: tagsObj.x00120064 ? tagsObj.x00120064.value[0] : '',
+                valueAfter: ''
+            })
         }
     
     }
@@ -771,9 +803,11 @@ module.exports = class DicomAnonymizer {
 
 
 
-    #processTags(rawTags, processTagsConfig){ 
+    #processTags(rawTags, processTagsConfig, isSequence = false){ 
 
         const {imageProps, isImplicit, strategy, options, customActionList} = processTagsConfig
+        
+        
 
         for(const [tagAddress, tag] of Object.entries(rawTags)){
             //leave header tags, already taken care off
@@ -785,6 +819,12 @@ module.exports = class DicomAnonymizer {
     
             //convert address from x12341234 to (1234,1234)
             const look = this.tagFormat(tagAddress, 'p')
+
+
+            //bypass this tags since they will be forced at the end
+            if(tagAddress === 'x00020012' || tagAddress === 'x00020013' || tagAddress === 'x00120063' || tagAddress === 'x00120064'){ 
+                continue
+            }
             
             //default action for whitelist is remove (when not listed) and copy for blacklist (when not listed)
             let tagAction = strategy === 'whitelist' ? 'remove' : 'copy'
@@ -844,19 +884,13 @@ module.exports = class DicomAnonymizer {
             
                 } else if(tagAddress === 'x00100030'){//patient birth date
                     mandatoryValue = this.#convertPatientBirthDate(tag.value[0], options.keepPatientBirthYear)
-                
-                } else if(tagAddress === 'x00020012'){//dicomImplementationClassUID
-                    mandatoryValue = this.dicomImplementationClassUID
-
-                } else if(tagAddress === 'x00020013'){//dicomImplementationVersionName
-                    mandatoryValue = this.dicomImplementationVersionName
-
-                } else if(tagAddress === 'x00120063'){//deidentificationMethod
-                    mandatoryValue = this.deidentificationMethod
-
-                } else if(tagAddress === 'x00120064'){//deidentificationSequenceCode
-                    mandatoryValue = ''
                 }
+                // } else if(tagAddress === 'x00120063'){//deidentificationMethod
+                //     mandatoryValue = this.deidentificationMethod
+
+                // } else if(tagAddress === 'x00120064'){//deidentificationSequenceCode
+                //     mandatoryValue = ''
+                // }
             }
         
             //just remove it and continue
@@ -885,7 +919,7 @@ module.exports = class DicomAnonymizer {
         
                 for(let k of Object.keys(tag.value) ){
                     
-                    this.#processTags(tag.value[k], processTagsConfig)
+                    this.#processTags(tag.value[k], processTagsConfig, true)
                 
                     //if the delimiter tag has undefined length means the lenght of the sequence will be inplicit and so an end delimiter tag will be added (+4 bytes)
                     //var implicitLength = tag.value[k].xFFFEE000.vl === 'u/l';
@@ -932,6 +966,37 @@ module.exports = class DicomAnonymizer {
                 continue
             }
         }
+
+
+        //not to sequences - force this tags to be present and equal to this library constants
+        if(!isSequence){
+          
+            // ImplementationClassUID
+            rawTags.x00020012 = {
+                tag: new dwv.dicom.Tag('0x0002', '0x0012'),
+                vr: 'UI',
+                value: [this.dicomImplementationClassUID]
+            }
+            // ImplementationVersionName
+            rawTags.x00020013 = {
+                tag: new dwv.dicom.Tag('0x0002', '0x0013'),
+                vr: 'SH',
+                value: [this.dicomImplementationVersionName]
+            }
+            //deidentificationMethod
+            rawTags.x00120063 = {
+                tag: new dwv.dicom.Tag('0x0012', '0x0063'),
+                vr: 'LO',
+                value: [this.deidentificationMethod]
+            }
+            rawTags.x00120064 = {
+                tag: new dwv.dicom.Tag('0x0012', '0x0064'),
+                vr: 'SQ',
+                value: []
+            }
+
+        }
+
     }
 
 

@@ -125,12 +125,12 @@ module.exports = class DicomAnonymizerTests {
         console.log('**', file, '**')
 
         const arraybuffer = fs.readFileSync(file)
-        const blob = await dicomAnonymizer.anonymizeArraybuffer(arraybuffer, mapKeys)
-        const prev = await dicomAnonymizer.previewAnonymizeArraybufferAsDatatable(blob)
-        console.log(prev)
+        //const blob = await dicomAnonymizer.anonymizeArraybuffer(arraybuffer, mapKeys)
+        const prev = await dicomAnonymizer.previewAnonymizeArraybufferAsDatatable(arraybuffer)
         
-
-        //console.log(blob)
+        
+        console.log(prev.filter(t=>{return t.address === '(0012,0063)' || t.address === '(0012,0064)' || t.address === '(0002,0012)' || t.address === '(0002,0013)'}))
+        //console.log(prev)
         //console.log(mapKeys)
     }
 
@@ -144,7 +144,7 @@ module.exports = class DicomAnonymizerTests {
             const arraybuffer = fs.readFileSync(file)
             const blob = await dicomAnonymizer.anonymizeArraybuffer(arraybuffer, mapKeys)
             const prev = await dicomAnonymizer.previewAnonymizeArraybufferAsDatatable(blob)
-            console.log(prev)
+            console.log(prev.filter(t=>{return t.address === '(0012,0063)' || t.address === '(0012,0064)' || t.address === '(0002,0012)' || t.address === '(0002,0013)'}))
         }
 
     }
