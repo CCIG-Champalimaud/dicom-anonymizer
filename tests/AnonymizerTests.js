@@ -122,9 +122,9 @@ module.exports = class DicomAnonymizerTests {
 
 
     async anonymizeFile(file, mapKeys = []){
-        console.log(this.files[0]);
+        console.log('**', file, '**')
 
-        const arraybuffer = fs.readFileSync(this.files[0]).buffer
+        const arraybuffer = fs.readFileSync(file)
         const blob = await dicomAnonymizer.anonymizeArraybuffer(arraybuffer, mapKeys)
         const prev = await dicomAnonymizer.previewAnonymizeArraybufferAsDatatable(blob)
         console.log(prev)
@@ -139,7 +139,13 @@ module.exports = class DicomAnonymizerTests {
 
 
     async anonymizeFiles(mapKeys = []){
-
+        for(const file of this.files){
+            console.log('**', file, '**')
+            const arraybuffer = fs.readFileSync(file)
+            const blob = await dicomAnonymizer.anonymizeArraybuffer(arraybuffer, mapKeys)
+            const prev = await dicomAnonymizer.previewAnonymizeArraybufferAsDatatable(blob)
+            console.log(prev)
+        }
 
     }
 
