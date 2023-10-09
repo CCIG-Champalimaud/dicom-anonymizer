@@ -253,12 +253,13 @@ module.exports = class DicomAnonymizer {
             return new Promise((resolve, reject) => {
                 try{
     
-                    const   reader = new FileReader()
+                    const   reader = new FileReader(),
+                            dicomParser = new dwv.dicom.DicomParser()
     
                     reader.onload = function() {
                         const arrayBuffer = new Uint8Array(reader.result)
-                        this.dwvDicomParser.parse(arrayBuffer.buffer)
-                        resolve(this.dwvDicomParser.getRawDicomElements())
+                        dicomParser.parse(arrayBuffer.buffer)
+                        resolve(dicomParser.getRawDicomElements())
                     }
                     reader.readAsArrayBuffer(f) 
     
