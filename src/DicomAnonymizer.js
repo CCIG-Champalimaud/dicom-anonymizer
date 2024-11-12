@@ -740,6 +740,18 @@ module.exports = class DicomAnonymizer {
         const oldPatientName = this.#getElementValueAsString(rawTags.x00100010) || this.#getElementValueAsString(rawTags.x00100020) 
         const newPatientName = this.#convertPatientName( oldPatientName, newPatientID, options.patientNameOption, options.patientNamePrefix, options.patientNameSuffix )
         
+        //patient age
+        const patientAge = this.#getElementValueAsString(rawTags.x00101010) || ''
+
+        //patient birth date
+        const patientBirthdate = this.#getElementValueAsString(rawTags.x00100030) || ''
+
+        //institution name
+        const institutionName = this.#getElementValueAsString(rawTags.x00080080) || ''
+
+        //study date
+        const studyDate = this.#getElementValueAsString(rawTags.x00080020) || ''
+
         //study instance UID
         const oldStudyInstanceUID = this.#getElementValueAsString(rawTags['x0020000D']) || ''
         const newStudyInstanceUID = this.#convertUID( oldStudyInstanceUID )
@@ -761,7 +773,20 @@ module.exports = class DicomAnonymizer {
         }
     
         if(map) {
-            this.#updateMap(map, {oldPatientID, oldStudyInstanceUID, oldSeriesInstanceUID, newPatientID, newStudyInstanceUID, newSeriesInstanceUID})
+            this.#updateMap(map, {
+                oldPatientName,
+                oldPatientID,
+                patientAge,
+                patientBirthdate,
+                studyDate,
+                institutionName,
+                oldStudyInstanceUID,
+                oldSeriesInstanceUID,
+                newPatientName,
+                newPatientID,
+                newStudyInstanceUID,
+                newSeriesInstanceUID
+            })
         }
     
         const syntax = dwv.dicom.cleanString(rawTags.x00020010.value[0])
@@ -1146,16 +1171,21 @@ module.exports = class DicomAnonymizer {
 
 
     #updateMap(map, data){
-        const {oldPatientID, oldStudyInstanceUID, oldSeriesInstanceUID, newPatientID, newStudyInstanceUID, newSeriesInstanceUID} = data
-        const mapItem = map.find(item => item['oldSeriesId'] === oldSeriesInstanceUID)
+        const mapItem = map.find(item => item['oldSeriesId'] === data.oldSeriesInstanceUID)
         if(!mapItem){
             map.push({
-                oldPatientId: oldPatientID,
-                oldStudyId: oldStudyInstanceUID,
-                oldSeriesId: oldSeriesInstanceUID,
-                newPatientId: newPatientID,
-                newStudyId: newStudyInstanceUID,
-                newSeriesId: newSeriesInstanceUID
+                oldPatientName: data.oldPatientName,
+                newPatientName: data.newPatientName,
+                patientAge: data.patientAge,
+                patientBirthdate: data.patientBirthdate,
+                studyDate: data.studyDate,
+                institutionName: data.institutionName,
+                oldPatientId: data.oldPatientID,
+                oldStudyId: data.oldStudyInstanceUID,
+                oldSeriesId: data.oldSeriesInstanceUID,
+                newPatientId: data.newPatientID,
+                newStudyId: data.newStudyInstanceUID,
+                newSeriesId: data.newSeriesInstanceUID
             })
         }
     }
