@@ -825,11 +825,9 @@ module.exports = class DicomAnonymizer {
 
         const {imageProps, isImplicit, strategy, options, customActionList} = processTagsConfig
         
-        
-
         for(const [tagAddress, tag] of Object.entries(rawTags)){
             //leave header tags, already taken care off
-            const groupName = dwv.dicom.TagGroups[tag.tag.getGroup().slice(1)];
+            //const groupName = dwv.dicom.TagGroups[tag.tag.getGroup().slice(1)];
 
             // if (groupName === 'Meta Element') {
             //     //continue
@@ -1122,7 +1120,7 @@ module.exports = class DicomAnonymizer {
     //replace birthdate keeping the year for age preservation
     #convertPatientBirthDate(birthDate, keepPatientBirthYear = true){
         if( !birthDate || !keepPatientBirthYear || birthDate.length !== 8){
-            return '19700101'
+            return ''
         }
         return `${birthDate.substring(0,4)}0101` 
     }
