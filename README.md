@@ -43,7 +43,9 @@ yarn build
 To use the DICOM Anonymizer, you need to create an instance of the DicomAnonymizer class by passing a configuration object:
 
 ```javascript
-const { DicomAnonymizer } = require('dicom-anonymizer');
+const DicomAnonymizer = require('@ccig/dicom-anonymizer');
+//or
+//import DicomAnonymizer from "@ccig/dicom-anonymizer"
 
 const config = {
   dicomImplementationClassUID: 'YOUR_IMPLEMENTATION_CLASS_UID',
