@@ -24,8 +24,8 @@ anonymizerTest.checkIfFileIsDicomP10()
 //anonymizerTest.isKnownClass()
 //anonymizerTest.hashStringToNumber()
 //anonymizerTest.tagFormat()
-//anonymizerTest.previewAnonymizeFileAsDatatable()
-anonymizerTest.anonymizeFile(files[0])
+anonymizerTest.previewAnonymizeFileAsDatatable()
+//anonymizerTest.anonymizeFile(files[1])
 
 
 

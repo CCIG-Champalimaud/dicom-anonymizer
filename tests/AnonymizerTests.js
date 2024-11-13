@@ -108,11 +108,32 @@ module.exports = class DicomAnonymizerTests {
     
     
     async previewAnonymizeFileAsDatatable(){
-        const arraybuffer = fs.readFileSync(this.files[0]).buffer
-        const prev = await dicomAnonymizer.previewAnonymizeArraybufferAsDatatable(arraybuffer)
-        console.log(prev)
-       //console.log(prev.find(p=>p.address === '(0010,0010)').value, '=>', prev.find(p=>p.address === '(0010,0010)').valueAfter)
-       //console.log(prev.find(p=>p.address === '(0010,0020)').value, '=>', prev.find(p=>p.address === '(0010,0020)').valueAfter)
+        const arraybuffer = fs.readFileSync(this.files[4])
+
+        const nonAnonymizedDataset = await dicomAnonymizer.getDatasetFromArraybuffer(arraybuffer)
+        
+        const compare = {}
+        for(const [key, value] of Object.entries(nonAnonymizedDataset)){
+            if(key === 'x7FE00010' || value.vr === 'SQ') continue
+            compare[key] = {prev:value.value[0] }
+        }
+    
+
+        //const prev = await dicomAnonymizer.previewAnonymizeArraybufferAsDatatable(arraybuffer)
+        const anonymized = await dicomAnonymizer.anonymizeArraybuffer(arraybuffer, [])
+
+        const afterAnonymizationDataset = await dicomAnonymizer.getDatasetFromArraybuffer(anonymized)
+               
+        for(const [key, value] of Object.entries(afterAnonymizationDataset)){
+            if(key === 'x7FE00010' || value.vr === 'SQ') continue
+            compare[key].aft = value.value[0]
+        }
+       
+        for(const [key, value] of Object.entries(compare)){
+            console.log(key, '=', value.prev, ' -> ', value.aft || '')
+        }
+        
+        // console.log(afterAnonymizationDataset.x00100030.value )
     }
 
 
@@ -125,12 +146,12 @@ module.exports = class DicomAnonymizerTests {
         console.log('**', file, '**')
 
         const arraybuffer = fs.readFileSync(file)
-        //const blob = await dicomAnonymizer.anonymizeArraybuffer(arraybuffer, mapKeys)
+        const blob = await dicomAnonymizer.anonymizeArraybuffer(arraybuffer, mapKeys)
         const prev = await dicomAnonymizer.previewAnonymizeArraybufferAsDatatable(arraybuffer)
         
-        console.log(prev.filter(t=>{return t.address === '(0012,0063)' || t.address === '(0012,0064)' || t.address === '(0002,0012)' || t.address === '(0002,0013)'}))
+        //console.log(prev.filter(t=>{return t.address === '(0012,0063)' || t.address === '(0012,0064)' || t.address === '(0002,0012)' || t.address === '(0002,0013)'}))
         //console.log(prev)
-        //console.log(mapKeys)
+        console.log(mapKeys)
     }
 
     
